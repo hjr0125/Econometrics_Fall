@@ -1,3 +1,3 @@
 # Econometrics Problems
 
-Snu 2022_Fall Econometrics problems
+Hansen's Econometrics problems
