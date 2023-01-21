@@ -1,0 +1,216 @@
+---
+title: 
+header-includes:
+   - \usepackage{amsmath}
+   - \usepackage{amssymb}
+   - \usepackage{booktabs}
+   - \usepackage{longtable}
+   - \usepackage{array}
+   - \usepackage{multirow}
+   - \usepackage{wrapfig}
+   - \usepackage{float}
+   - \usepackage{colortbl}
+   - \usepackage{pdflscape}
+   - \usepackage{tabu}
+   - \usepackage{threeparttable}
+   - \usepackage{threeparttablex}
+   - \usepackage[normalem]{ulem}
+   - \usepackage{makecell}
+   - \usepackage{xcolor}
+output:
+  pdf_document: 
+    latex_engine: xelatex
+  word_document: default
+  html_document:
+    theme:
+      version: 4
+---
+\pagenumbering{gobble}
+\newcommand{\longeqnote}[1]{& & \\ \notag  &  &  &  &  & \text{\small\llap{#1}}}
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## Exercises 9.25
+
+###### Import data
+
+First, Set the environment and import data. *Note that i wrote the code using R*
+
+```{r message=FALSE, warning=FALSE, paged.print=FALSE}
+rm(list=ls())
+library(dplyr) #dataframe management
+library(haven) #library for importing data set
+library(psych) #library for trace matrix
+invest <- read_dta("Invest1993.dta")
+invest <- invest %>% 
+  select(year,inva,vala,cfa,debta) %>% 
+  rename(I = inva, Q = vala, C= cfa, D=debta)
+```
+```{r include=FALSE}
+library(kableExtra)
+```
+
+```{r echo=FALSE}
+knitr::kable(invest[1:10,1:5], format="latex",caption = 'First 10 elements of Invest1993',booktabs = T) %>% 
+  kable_styling(font_size = 10,latex_options = "HOLD_position")
+```
+
+```{r}
+invest %>% 
+  group_by(year) %>% 
+  summarise(mean(I),mean(Q),mean(C),mean(D))
+```
+```{r include=FALSE}
+ungroup(invest)
+```
+
+##### (a) Extract the sub-sample of observations for 1987. There should be 1028 observations. Estimate a linear regression of I (investment to capital ratio) on the other variables. Calculate appropriate standard errors.\newline
+\hfill
+```{r}
+sub_inv <- invest %>% 
+  filter(year == 1987)
+sub_inv %>% 
+  count()
+```
+
+```{r echo=FALSE}
+knitr::kable(sub_inv[1:10,1:5], format="latex",caption = 'First 10 elements of subset',booktabs = T) %>% 
+  kable_styling(font_size = 10,latex_options = "HOLD_position")
+```
+
+Lets set the regression equation for estimation.
+\begin{equation*} I = \beta_1 Q +\beta_2 C +\beta_3 D +\beta_4 \end{equation*}
+
+Calculation of linear regression estimate is following codes.
+```{r}
+X <- sub_inv %>% 
+  select(-year) %>%
+  select(-I) %>% 
+  bind_cols(data.frame(con=rep(1,nrow(sub_inv))))
+X <- as.matrix(X)
+Y <- sub_inv %>% 
+  select(I)
+Y <- as.matrix(Y)
+
+beta_hat <- solve((t(X) %*% X)) %*% (t(X) %*% Y)
+e_hat <- Y - X %*% beta_hat
+
+XX <- solve((t(X) %*% X)) #XX is variable name it means inverse matrix of (X'X)
+leverage <- diag(X%*%XX%*%t(X))
+
+u3 <- X * ((e_hat/(1-leverage))%*% matrix(1,1,ncol(X)))
+v3 <- XX %*% (t(u3) %*% u3) %*% XX
+s3 <- sqrt(diag(v3))
+```
+
+```{r echo=FALSE}
+result_a <- cbind(beta_hat,s3)
+rownames(result_a) <- c('Q','C','D','Constant')
+colnames(result_a) <- c('Coefficient','Robust standard errors')
+```
+
+```{r echo=FALSE}
+knitr::kable(result_a,caption = 'Coefficient estimates and Robust S.E.',booktabs = T)%>% 
+  kable_styling(latex_options = "HOLD_position")
+```
+
+Thus estimated equation is
+\begin{flalign*}& & \hat{I} &= \underset{(0.001777149).}{0.002767410} Q + \underset{(0.023429188)}{0.004489979} C + \underset{(0.007188266)}{0.012334930} D+ \underset{(0.007358536)***}{0.100780183} \longeqnote{Signif. codes:  0 ‘***’ 0.001 ‘**’ 0.01 ‘*’ 0.05 ‘.’ 0.1 ‘ ’ 1}
+\end{flalign*}
+
+
+##### (b) Calculate asymptotic confidence intervals for the coefficients.\newline
+\hfill
+
+
+Following codes are calculation of 95% CI for coefficients.Basically method of calculation is same with exercise 7.28.
+
+```{r results=FALSE}
+#CI for Beta_1 hat
+beta_hat['Q',]+1.96*sqrt(v3['Q','Q'])
+beta_hat['Q',]-1.96*sqrt(v3['Q','Q'])
+
+#CI for Beta_2 hat
+beta_hat['C',]+1.96*sqrt(v3['C','C'])
+beta_hat['C',]-1.96*sqrt(v3['C','C'])
+
+#CI for Beta_3 hat
+beta_hat['D',]+1.96*sqrt(v3['D','D'])
+beta_hat['D',]-1.96*sqrt(v3['D','D'])
+
+#CI for Beta_4 hat
+beta_hat['con',]+1.96*sqrt(v3['con','con'])
+beta_hat['con',]-1.96*sqrt(v3['con','con'])
+```
+\begin{align*}
+CI_{\hat{\beta_1}} &= [-0.000715802,0.006250621] \\
+CI_{\hat{\beta_2}} &= [-0.04143123,0.05041119]\\
+CI_{\hat{\beta_3}} &= [-0.001754072,0.02642393]\\
+CI_{\hat{\beta_4}} &= [0.08635745,0.1152029]\\
+\end{align*}
+
+
+##### (c) This regression is related to Tobin’s q theory of investment, which suggests that investment should be predicted solely by Q (Tobin’s Q). This theory predicts that the coefficient on Q should be positive and the others should be zero. Test the joint hypothesis that the coefficients on cash flow (C) and debt (D) are zero. Test the hypothesis that the coefficient on Q is zero. Are the results consistent with the predictions of the theory? \newline
+\hfill
+
+###### Test the joint hypothesis that the coefficients on cash flow (C) and debt (D) are zero. \newline
+
+Construct hypothesis test.
+Let $\alpha = 0.05$.
+\begin{align*}
+&\mathbb{H}_0 : \beta_2 = 0 \ \& \ \beta_3 = 0\\
+&\mathbb{H}_1 : \beta_2 \neq 0 \ \& \ \beta_3 \neq 0
+\end{align*}
+we can rewrite hypothesis as
+\begin{align*}
+&&\mathbb{H}_0 : C\beta = 0 \\
+&&\mathbb{H}_1 : C\beta \neq 0 \longeqnote{$0$ is $q \times 1$ vector of zeros.}
+\end{align*}
+
+To test hypothesis, the Wald statistic is
+\begin{align*}
+W = (C\hat{\beta})'(C{\hat{\textbf{V}}}_{\hat{\beta}}C')^{-1}(C\hat{\beta})
+\end{align*}
+
+Calculate Wald statistic: \newline
+C matrix is
+\begin{align*}C = 
+\begin{bmatrix}
+0 & 1  & 0 & 0\\
+0 & 0  & 1 & 0
+\end{bmatrix}
+\end{align*}
+Thus calculation of $W$ is following codes.
+```{r}
+const <- matrix(0,2,4)
+const[1,2] <- 1
+const[2,3] <- 1
+W <- t(const%*%beta_hat)%*%solve(const%*%v3%*%t(const))%*%(const%*%beta_hat)
+```
+
+```{r}
+qchisq(0.95,2)
+```
+$W = 2.988674$, Critical values c satisfying $\alpha = 1 - G_q (c)$,$0.05 = 1 - G_2 (c)$ thus $c = 5.991465$. Since $W = 2.988674 < c = 5.991465$, We cannot reject $\mathbb{H}_0$.
+
+
+###### Test the hypothesis that the coefficient on Q is zero. \newline
+
+Construct hypothesis test.
+Let $\alpha = 0.05$.
+\begin{align*}
+&\mathbb{H}_0 : \beta_1 = 0 \\
+&\mathbb{H}_1 : \beta_1 \neq 0
+\end{align*}
+Since t statistic is
+\begin{equation*}
+t(\beta_1)= \frac{\hat{\beta _1}}{s(\hat{\beta _ 1})} = \frac{0.002767410}{0.001777149} =1.557219
+\end{equation*}
+since $c = 1.96$,$|t(\beta_1)|<c$ thus we cannot reject $\mathbb{H} _0$.
+
+
+##### (d) Now try a nonlinear(quadratic) specification. Regress $I$ on $Q,C,D,Q^2,C^2,D^2,Q\times C,Q\times D,C\times D$. Test the joint hypothesis that the six interaction and quadratic coefficients are zero.\newline
+\hfill
+

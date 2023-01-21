@@ -1,0 +1,6 @@
+"0","#| echo: FALSE"
+"0","se2 <- data.frame(se2)"
+"0","result_c <- cbind(beta_hat2sls,se2)"
+"0","result_c <- round(result_c,2)"
+"0","rownames(result_c) <- c('risk','latitude','africa','intercept')"
+"0","colnames(result_c) <- c('Coefficient','Robust standard errors')"

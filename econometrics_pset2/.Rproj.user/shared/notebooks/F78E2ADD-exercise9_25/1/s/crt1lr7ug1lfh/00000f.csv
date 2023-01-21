@@ -1,0 +1,3 @@
+"0","result_a <- cbind(beta_hat,s3)"
+"0","rownames(result_a) <- c('Q','C','D','Constant')"
+"0","colnames(result_a) <- c('Coefficient','Robust standard errors')"

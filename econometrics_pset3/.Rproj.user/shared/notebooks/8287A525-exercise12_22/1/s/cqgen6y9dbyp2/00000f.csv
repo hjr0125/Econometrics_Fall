@@ -1,0 +1,11 @@
+"0","#| include: FALSE"
+"0","library(kableExtra)"
+"2","
+다음의 패키지를 부착합니다: ‘kableExtra’
+
+"
+"2","The following object is masked from ‘package:dplyr’:
+
+    group_rows
+
+"

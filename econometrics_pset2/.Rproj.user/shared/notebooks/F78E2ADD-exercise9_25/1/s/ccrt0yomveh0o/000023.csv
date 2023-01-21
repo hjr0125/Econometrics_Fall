@@ -1,0 +1,2 @@
+"0","knitr::kable(invest[1:10,1:5], format=""latex"",caption = 'First 10 elements of Invest1993',booktabs = T) %>% "
+"0","  kable_styling(font_size = 10,latex_options = ""HOLD_position"")"

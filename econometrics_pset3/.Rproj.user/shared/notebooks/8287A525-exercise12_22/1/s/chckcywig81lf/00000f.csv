@@ -1,0 +1,8 @@
+"0","#| message: FALSE"
+"0","#| warning: FALSE"
+"0","Pz <- Xr%*%solve(t(Xr)%*%Xr)%*%t(Xr)"
+"0","beta_hatcf <- solve(t(X)%*%Pz%*%X)%*%(t(X)%*%Pz%*%Y)"
+"0","row.names(beta_hatcf) <- c('risk','intercept')"
+"0","colnames(beta_hatcf) <- c('coefficient')"
+"0","result_e <- bind_cols(beta_hatils,beta_hat2sls,beta_hatcf)"
+"0","colnames(result_e) <- c('ILS','2SLS','Control Variable')"

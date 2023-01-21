@@ -1,0 +1,3 @@
+"0","beta_hatils <- solve(solve(t(Xr)%*%Xr)%*%t(Xr)%*%X)%*%solve(t(Xr)%*%Xr)%*%t(Xr)%*%Y"
+"0","row.names(beta_hatils) <- c('risk','intercept')"
+"0","colnames(beta_hatils) <- c('coefficient')"

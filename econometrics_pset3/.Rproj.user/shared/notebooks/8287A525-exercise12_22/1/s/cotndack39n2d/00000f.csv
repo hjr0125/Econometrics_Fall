@@ -1,0 +1,8 @@
+"0","#| message: FALSE"
+"0","#| warning: FALSE"
+"0","#| paged.print: FALSE"
+"0","rm(list=ls())"
+"0","library(dplyr) #dataframe management"
+"0","library(haven) #library for importing data set"
+"0","library(psych) #library for trace matrix"
+"0","ajr <- read_dta(""AJR2001.dta"")"

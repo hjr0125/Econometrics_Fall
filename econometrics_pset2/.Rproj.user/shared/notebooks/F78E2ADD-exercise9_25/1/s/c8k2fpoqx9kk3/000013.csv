@@ -1,0 +1,8 @@
+"0","rm(list=ls())"
+"0","library(dplyr) #dataframe management"
+"0","library(haven) #library for importing data set"
+"0","library(psych) #library for trace matrix"
+"0","invest <- read_dta(""Invest1993.dta"")"
+"0","invest <- invest %>% "
+"0","  select(year,inva,vala,cfa,debta) %>% "
+"0","  rename(I = inva, Q = vala, C= cfa, D=debta)"

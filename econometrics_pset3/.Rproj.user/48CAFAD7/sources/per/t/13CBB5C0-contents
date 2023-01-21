@@ -1,0 +1,580 @@
+---
+format:
+  pdf:
+    include-in-header: 
+        text: |
+         \usepackage{amsmath}
+         \usepackage{amssymb}
+         \usepackage{booktabs}
+         \usepackage{longtable}
+         \usepackage{array}
+         \usepackage{multirow}
+         \usepackage{wrapfig}
+         \usepackage{float}
+         \usepackage{colortbl}
+         \usepackage{pdflscape}
+         \usepackage{tabu}
+         \usepackage{threeparttable}
+         \usepackage{threeparttablex}
+         \usepackage[normalem]{ulem}
+         \usepackage{makecell}
+         \usepackage{xcolor}
+         \pagenumbering{gobble}
+editor: visual
+---
+
+```{r setup}
+#| include: FALSE
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+# Exercises 12.22
+
+###### Import data
+
+First, Set the environment and import data. *Note that I wrote the code using R*
+
+```{r}
+#| message: FALSE
+#| warning: FALSE
+#| paged.print: FALSE
+rm(list=ls())
+library(dplyr) #dataframe management
+library(haven) #library for importing data set
+library(psych) #library for trace matrix
+ajr <- read_dta("AJR2001.dta")
+```
+
+```{r}
+#| include: FALSE
+library(kableExtra)
+```
+
+##### (a) Estimate the OLS regression (12.86), the reduced form regression (12.87), and the 2SLS regression (12.88). (Which point estimate is different by 0.01 from the reported values? This is a common phenomenon in empirical replication).
+
+-   OLS regression.
+
+```{r}
+Y <- as.matrix(ajr$loggdp)
+X <- as.matrix(ajr %>% 
+                 select(risk) %>% 
+                 bind_cols(data.frame(con=rep(1,nrow(ajr)))))
+beta_hat <- solve((t(X) %*% X)) %*% (t(X) %*% Y)
+e_hat <- Y - X %*% beta_hat
+row.names(beta_hat) <- c('risk','intercept')
+colnames(beta_hat) <- c('coefficient')
+colnames(e_hat) <- c('error')
+
+```
+
+Set the variable for convenience.
+
+```{r}
+XX <- solve((t(X) %*% X)) #XX is variable name it means inverse matrix of (X'X)
+leverage <- diag(X%*%XX%*%t(X))
+```
+
+Calculate S.E. using the HC3 method.
+
+```{r}
+u3 <- X * ((e_hat/(1-leverage))%*% matrix(1,1,ncol(X)))
+v3 <- XX %*% (t(u3) %*% u3) %*% XX
+s3 <- sqrt(diag(v3))
+```
+
+```{r}
+#| echo: FALSE
+se <- data.frame(s3,row.names = c('risk','intercept'))
+result_a <- cbind(beta_hat,s3)
+result_a <- round(result_a,2)
+colnames(result_a) <- c('Coefficient','Robust standard errors')
+```
+
+```{r}
+#| echo: FALSE
+knitr::kable(result_a,caption = 'Coefficient estimates and Robust S.E.',
+             booktabs = T)%>% 
+  kable_styling(latex_options = "HOLD_position")
+```
+
+Thus estimated OLS estimates (intercept omitted) are
+
+```{=tex}
+\begin{equation}log(\widehat{GDP\ per\ Capita}) =  \underset{(0.05)}{0.52}\ risk.  \end{equation}
+```
+-   Reduced form regression.
+
+```{r}
+Yr <- as.matrix(ajr$risk)
+Xr <- as.matrix(ajr %>% 
+                 select(logmort0) %>% 
+                 bind_cols(data.frame(con=rep(1,nrow(ajr)))))
+beta_hatr <- solve((t(Xr) %*% Xr)) %*% (t(Xr) %*% Yr)
+e_hatr <- Yr - Xr %*% beta_hatr
+row.names(beta_hatr) <- c('mortality','intercept')
+colnames(beta_hatr) <- c('coefficient')
+colnames(e_hatr) <- c('error')
+
+```
+
+Set the variable for convenience.
+
+```{r}
+XXr <- solve((t(Xr) %*% Xr)) #XX is variable name it means inverse matrix of (X'X)
+leverager <- diag(Xr%*%XXr%*%t(Xr))
+```
+
+Calculate S.E. using the HC3 method.
+
+```{r}
+u3r <- Xr * ((e_hatr/(1-leverager))%*% matrix(1,1,ncol(Xr)))
+v3r <- XXr %*% (t(u3r) %*% u3r) %*% XXr
+s3r <- sqrt(diag(v3r))
+```
+
+```{r}
+#| echo: FALSE
+result_b <- cbind(beta_hatr,s3r)
+result_b <- round(result_b,2)
+colnames(result_b) <- c('Coefficient','Robust standard errors')
+rownames(result_b) <- c('$log(mortality)$','intercept')
+```
+
+```{r}
+#| echo: FALSE
+knitr::kable(result_b,caption = 'Coefficient estimates and Robust S.E.',
+             booktabs = T,escape = F)%>% 
+  kable_styling(latex_options = "HOLD_position")
+```
+
+Thus first-stage regression (intercept omitted) is
+
+```{=tex}
+\begin{equation}risk =  \underset{(0.16)}{-0.61}\ log(mortality)+\hat{u}.  \end{equation}
+```
+-   2SLS regression.
+
+```{r}
+beta_hat2sls <- solve(t(X)%*%Xr%*%solve(t(Xr)%*%Xr)%*%t(Xr)%*%X)%*%t(X)%*%Xr%*%
+  solve(t(Xr)%*%Xr)%*%t(Xr)%*%Y
+e_hat2sls <- Y - X %*% beta_hat2sls
+row.names(beta_hat2sls) <- c('risk','intercept')
+colnames(beta_hat2sls) <- c('coefficient')
+colnames(e_hat2sls) <- c('error')
+```
+
+Calculate S.E. assume heteroskedastic.
+
+```{r}
+u2sls <- Xr*(e_hat2sls%*%matrix(1,1,ncol(Xr)))
+qzx <- t(Xr)%*%X
+qxx <- t(X)%*%X
+qzz <- t(Xr)%*%Xr
+v2sls <- solve(t(qzx)%*%solve(qzz)%*%qzx)%*%t(qzx)%*%solve(qzz)%*%
+  (t(u2sls)%*%u2sls)%*%solve(qzz)%*%qzx%*%solve(t(qzx)%*%solve(qzz)%*%qzx)
+se2 <- sqrt(diag(v2sls))
+```
+
+```{r}
+#| echo: FALSE
+se2 <- data.frame(se2,row.names = c('risk','intercept'))
+result_c <- cbind(beta_hat2sls,se2)
+result_c <- round(result_c,2)
+colnames(result_c) <- c('Coefficient','Robust standard errors')
+```
+
+```{r}
+#| echo: FALSE
+knitr::kable(result_c,caption = 'Coefficient estimates and Robust S.E. \\label{tab:3}',
+             booktabs = T)%>% 
+  kable_styling(latex_options = "HOLD_position")
+```
+
+Thus 2SLS regression (intercept omitted) is
+
+```{=tex}
+\begin{equation}\label{eq:3} log(\widehat{GDP\ per\ Capita}) =  \underset{(0.17)}{0.93}\ risk.  \end{equation}
+```
+From equation ($\ref{eq:3}$); coefficient is 0.93, We can observe that point estimate is different by 0.01 from (12.88); coefficient is 0.94.
+
+##### (b) For the above estimates calculate both homoskedastic and heteroskedastic-robust standard errors. Which were used by the authors (as reported in (12.86)-(12.87)-(12.88)?)
+
+-   Calculation of homoskedastic standard errors.
+
+```{r}
+#| warning: FALSE
+sig2_1 <- as.numeric((t(e_hat)%*%e_hat)/(nrow(Y)-ncol(X))) #sigma for ols
+sig2_2 <- as.numeric((t(e_hatr)%*%e_hatr)/(nrow(Yr)-ncol(Xr))) #sigma for first-stage
+sig2_3 <- as.numeric((t(e_hat2sls)%*%e_hat2sls)/(nrow(Y)-ncol(X))) #sigma for 2sls
+
+v0_1 <- XX*sig2_1 #variance for ols
+v0_2 <- XXr*sig2_2 #variance for first-stage
+v0_3 <- solve(t(qzx)%*%solve(qzz)%*%qzx)%*%t(qzx)%*%solve(qzz)%*% #variance for 2sls
+  solve(qzz)%*%qzx%*%solve(t(qzx)%*%solve(qzz)%*%qzx)*sig2_3
+
+
+s0_1 <- diag(sqrt(v0_1))
+s0_2 <- diag(sqrt(v0_2))
+s0_3 <- diag(sqrt(v0_3))
+
+
+result_d <- data.frame('homoskedastic'=c(s0_1[1],s0_2[1],s0_3[1]),
+                       'heteroskedastic'=c(s3[1],s3r[1],se2[1,]),
+                       'reports from paper' =c(0.06,0.13,0.16),
+                       row.names = c('ols','first-stage','2sls'))
+```
+
+```{r}
+#| echo: FALSE
+colnames(result_d)[3] <- 'reports from paper'
+knitr::kable(result_d,caption = 'Homoskedastic and heteroskedastic S.E.',
+             booktabs = T)%>% 
+  kable_styling(latex_options = "HOLD_position")
+```
+
+Above table is homoskedastic error and heteroskedastic-robust standard errors which calculated in the (a).
+
+Reported S.E. of ols is more close to the homoskedastic error, But reported S.E. of 2SLS is more close to the heteroskedastic-robust Standard errors. S.E. of first-stage is almost same between homoskedastic and heteroskedastic standard errors.
+
+##### (c) Calculate the 2SLS estimates by the Indirect Least Squares formula. Are they the same?
+
+ILS estimator is
+
+$$
+\hat{\beta}_{ils} = \hat{\bar{\Gamma}}^{-1}\hat{\lambda}=((Z'Z)^{-1}Z'X)^{-1}(Z'Z)^{-1}Z'Y_1.
+$$
+
+Where $Z =\text{Exogenous variables, }X=\text{Endogenous variables}$. Thus Calculation of ILS estimator is following codes.
+
+```{r}
+beta_hatils <- solve(solve(t(Xr)%*%Xr)%*%t(Xr)%*%X)%*%solve(t(Xr)%*%Xr)%*%t(Xr)%*%Y
+row.names(beta_hatils) <- c('risk','intercept')
+colnames(beta_hatils) <- c('coefficient')
+```
+
+I will compare the result in the (e).
+
+##### (d) Calculate the 2SLS estimates by the two-stage approach. Are they the same?
+
+2SLS is calculated from (a), Thus codes are same too.
+
+```{r}
+beta_hat2sls <- solve(t(X)%*%Xr%*%solve(t(Xr)%*%Xr)%*%t(Xr)%*%X)%*%t(X)%*%Xr%*%
+  solve(t(Xr)%*%Xr)%*%t(Xr)%*%Y
+row.names(beta_hat2sls) <- c('risk','intercept')
+colnames(beta_hat2sls) <- c('coefficient')
+```
+
+I will compare the result in the (e).
+
+##### (e) Calculate the 2SLS estimates by the control variable approach. Are they the same?
+
+Estimator from control variable approach is
+
+$$
+\hat{\beta} = (X'P_{Z}X)^{-1}(X'P_{Z}Y)
+.$$
+
+Where $P_Z=Z(Z'Z)^{-1}Z'$.
+
+```{r}
+#| message: FALSE
+#| warning: FALSE
+Pz <- Xr%*%solve(t(Xr)%*%Xr)%*%t(Xr)
+beta_hatcf <- solve(t(X)%*%Pz%*%X)%*%(t(X)%*%Pz%*%Y)
+row.names(beta_hatcf) <- c('risk','intercept')
+colnames(beta_hatcf) <- c('coefficient')
+result_e <- bind_cols(beta_hatils,beta_hat2sls,beta_hatcf)
+colnames(result_e) <- c('ILS','2SLS','Control Variable')
+```
+
+```{r}
+#| echo: FALSE
+result_e <- as.data.frame(result_e)
+row.names(result_e) <- c('risk','intercept')
+knitr::kable(result_e,caption = 'Coefficient estimates calculated by various method \\label{tab:5}',booktabs = T)%>% 
+  kable_styling(latex_options = "HOLD_position")
+```
+
+As the table $\ref{tab:5}$, Estimated results from ILS, 2SLS, and Control variable approach are same.
+
+##### (f) Acemoglu, Johnson, and Robinson (2001) reported many specifications including alternative regressor controls, for example *latitude* and *africa*. Estimate by least squares the equation for logGDP adding *latitude* and *africa* as regressors. Does this regression suggest that latitude and africa are predictive of the level of GDP?
+
+-   Calculate OLS Regression
+
+```{r}
+Y <- as.matrix(ajr$loggdp)
+X <- as.matrix(ajr %>% 
+                 select(risk, latitude, africa ) %>% 
+                 bind_cols(data.frame(con=rep(1,nrow(ajr)))))
+
+#calculate beta
+
+beta_hat <- solve((t(X) %*% X)) %*% (t(X) %*% Y)
+e_hat <- Y - X %*% beta_hat
+
+#calculate robust S.E.
+
+XX <- solve((t(X) %*% X)) #XX is variable name it means inverse matrix of (X'X)
+leverage <- diag(X%*%XX%*%t(X))
+u3 <- X * ((e_hat/(1-leverage))%*% matrix(1,1,ncol(X)))
+v3 <- XX %*% (t(u3) %*% u3) %*% XX
+s3 <- sqrt(diag(v3))
+```
+
+```{r}
+#| echo: FALSE
+se <- data.frame(s3,row.names = c('risk','latitude','africa','intercept'))
+result_a <- cbind(beta_hat,s3)
+result_a <- round(result_a,2)
+rownames(result_a) <- c('risk','latitude','africa','intercept')
+colnames(result_a) <- c('Coefficient','Robust standard errors')
+knitr::kable(result_a,caption = 'Coefficient estimates and Robust S.E. \\label{tab:6}',
+             booktabs = T)%>% 
+  kable_styling(latex_options = "HOLD_position")
+```
+
+We can do t-test to confirm that *latitude* and *africa* are predictive of the the level of GDP. We can construct following hypothesis test. with size $\alpha = 0.05$
+
+```{=tex}
+\begin{align*} H_0: \beta_{africa}=0\\
+H1:\beta_{africa}\neq 0 \end{align*}
+```
+and other test, with size $\alpha = 0.05$
+
+```{=tex}
+\begin{align*} H_0: \beta_{latitude}=0\\
+H1:\beta_{latitude}\neq 0 \end{align*}
+```
+Since $t_{latitude} = 2.029412$, and $t_{africa}=4$ we can reject null hypothesis at size of 0.05. Therefore *latitude* and *africa* are predictive of the the level of GDP.
+
+##### (g) Now estimate the same equation as in (f) but by 2SLS using log(*mortality*) as an instrument for *risk*. How does the interpretation of the effect of *latitude* and *africa* change?
+
+-   2SLS regression.
+
+```{r}
+Xr <- as.matrix(ajr %>% 
+                 select(logmort0, latitude , africa) %>% 
+                 bind_cols(data.frame(con=rep(1,nrow(ajr)))))
+
+
+beta_hat2sls <- solve(t(X)%*%Xr%*%solve(t(Xr)%*%Xr)%*%t(Xr)%*%X)%*%t(X)%*%Xr%*%
+  solve(t(Xr)%*%Xr)%*%t(Xr)%*%Y
+e_hat2sls <- Y - X %*% beta_hat2sls
+```
+
+Calculate S.E. assume heteroskedastic.
+
+```{r}
+u2sls <- Xr*(e_hat2sls%*%matrix(1,1,ncol(Xr)))
+qzx <- t(Xr)%*%X
+qxx <- t(X)%*%X
+qzz <- t(Xr)%*%Xr
+v2sls <- solve(t(qzx)%*%solve(qzz)%*%qzx)%*%t(qzx)%*%solve(qzz)%*%
+  (t(u2sls)%*%u2sls)%*%solve(qzz)%*%qzx%*%solve(t(qzx)%*%solve(qzz)%*%qzx)
+se2 <- sqrt(diag(v2sls))
+```
+
+```{r}
+#| echo: FALSE
+se2 <- data.frame(se2)
+result_c <- cbind(beta_hat2sls,se2)
+result_c <- round(result_c,2)
+rownames(result_c) <- c('risk','latitude','africa','intercept')
+colnames(result_c) <- c('Coefficient','Robust standard errors')
+```
+
+```{r}
+#| echo: FALSE
+knitr::kable(result_c,caption = 'Coefficient estimates and Robust S.E. \\label{tab:7}',
+             booktabs = T)%>% 
+  kable_styling(latex_options = "HOLD_position")
+```
+
+*latitude* and *africa* are not predictive of the level of GDP in my reults. As the results from table $\ref{tab:7}$, the S.E for coefficients of *latitude* and *africa* are too large to argue that these variables are predictive of the level of GDP at size of 0.05.
+
+##### (h) Return to our baseline model (without including *latitude* and *africa*). The authors' reduced form equation uses log(*mortality*) as the instrument, rather than, say, the level of mortality. Estimate the reduced form for risk with mortality as the instrument. (This variable is not provided in the dataset so you need to take the exponential of log(*mortality*).) Can you explain why the authors preferred the equation with log(*mortality*)?
+
+-   Reduced form regression.
+
+```{r}
+Yr <- as.matrix(ajr$risk)
+Xr <- as.matrix(ajr %>% 
+                 mutate(mortality = exp(logmort0)) %>% 
+                 select(mortality) %>% 
+                 bind_cols(data.frame(con=rep(1,nrow(ajr)))))
+beta_hatr <- solve((t(Xr) %*% Xr)) %*% (t(Xr) %*% Yr)
+e_hatr <- Yr - Xr %*% beta_hatr
+row.names(beta_hatr) <- c('mortality','intercept')
+colnames(beta_hatr) <- c('coefficient')
+colnames(e_hatr) <- c('error')
+
+```
+
+Set the variable for convenience.
+
+```{r}
+XXr <- solve((t(Xr) %*% Xr)) #XX is variable name it means inverse matrix of (X'X)
+leverager <- diag(Xr%*%XXr%*%t(Xr))
+```
+
+Calculate S.E. using the HC3 method.
+
+```{r}
+u3r <- Xr * ((e_hatr/(1-leverager))%*% matrix(1,1,ncol(Xr)))
+v3r <- XXr %*% (t(u3r) %*% u3r) %*% XXr
+s3r <- sqrt(diag(v3r))
+```
+
+```{r}
+#| echo: FALSE
+ser <- data.frame(s3r,row.names = c('mortality','intercept'))
+result_b <- cbind(beta_hatr,s3r)
+result_b <- round(result_b,2)
+colnames(result_b) <- c('Coefficient','Robust standard errors')
+```
+
+```{r}
+#| echo: FALSE
+knitr::kable(result_b,caption = 'Coefficient estimates and Robust S.E.',
+             booktabs = T)%>% 
+  kable_styling(latex_options = "HOLD_position")
+```
+
+Thus first-stage regression (intercept omitted) is
+
+```{=tex}
+\begin{equation} \label{eqn:4} risk =  \underset{(0)}{0} \times mortality +\hat{u}.  \end{equation}
+```
+As the equation $\ref{eqn:4}$, We cannot find correlation between risk and mortality. By taking log to mortality, We can observe correlation between risk and log(mortality). Thus I can guess that this is reason why authors preferred the equation with log(mortality).
+
+##### (i) Try an alternative reduced form including both log(*mortality*) and the square of log(*mortality*). Interpret the results. Re-estimate the structural equation by 2SLS using both log(*mortality*) and its square as instruments. How do the results change?
+
+-   Reduced form regression.
+
+```{r}
+Yr <- as.matrix(ajr$risk)
+Y <- as.matrix(ajr$loggdp)
+X <- as.matrix(ajr %>% 
+                 select(risk) %>% 
+                 bind_cols(data.frame(con=rep(1,nrow(ajr)))))
+Xr <- as.matrix(ajr %>% 
+                 select(logmort0) %>%
+                 mutate(logmort0sq = logmort0^2) %>% 
+                 bind_cols(data.frame(con=rep(1,nrow(ajr)))))
+beta_hatr <- solve((t(Xr) %*% Xr)) %*% (t(Xr) %*% Yr)
+e_hatr <- Yr - Xr %*% beta_hatr
+```
+
+Set the variable for convenience.
+
+```{r}
+XXr <- solve((t(Xr) %*% Xr)) #XX is variable name it means inverse matrix of (X'X)
+leverager <- diag(Xr%*%XXr%*%t(Xr))
+```
+
+Calculate S.E. using the HC3 method.
+
+```{r}
+u3r <- Xr * ((e_hatr/(1-leverager))%*% matrix(1,1,ncol(Xr)))
+v3r <- XXr %*% (t(u3r) %*% u3r) %*% XXr
+s3r <- sqrt(diag(v3r))
+```
+
+```{r}
+#| echo: FALSE
+result_b <- cbind(beta_hatr,s3r)
+result_b <- round(result_b,2)
+colnames(result_b) <- c('Coefficient','Robust standard errors')
+rownames(result_b) <-  c('$log(mortality)$','$log(mortality)^2$','intercept')
+knitr::kable(result_b,caption = 'Coefficient estimates and Robust S.E.',
+             booktabs = T,escape = F)%>% 
+  kable_styling(latex_options = "HOLD_position")
+```
+
+Thus first-stage regression (intercept omitted) is
+
+```{=tex}
+\begin{equation} risk =  \underset{(0.95
+)}{-2.65} log(mortality) +\underset{(0.11)}{0.21} log(mortality)^2 + \hat{u}.  \end{equation}
+```
+-   2SLS regression.
+
+```{r}
+beta_hat2sls <- solve(t(X)%*%Xr%*%solve(t(Xr)%*%Xr)%*%t(Xr)%*%X)%*%t(X)%*%Xr%*%
+  solve(t(Xr)%*%Xr)%*%t(Xr)%*%Y
+e_hat2sls <- Y - X %*% beta_hat2sls
+```
+
+Calculate S.E. assume heteroskedastic.
+
+```{r}
+u2sls <- Xr*(e_hat2sls%*%matrix(1,1,ncol(Xr)))
+qzx <- t(Xr)%*%X
+qxx <- t(X)%*%X
+qzz <- t(Xr)%*%Xr
+v2sls <- solve(t(qzx)%*%solve(qzz)%*%qzx)%*%t(qzx)%*%solve(qzz)%*%
+  (t(u2sls)%*%u2sls)%*%solve(qzz)%*%qzx%*%solve(t(qzx)%*%solve(qzz)%*%qzx)
+se2 <- sqrt(diag(v2sls))
+```
+
+```{r}
+#| echo: FALSE
+se2 <- data.frame(se2,row.names = c('risk','intercept'))
+result_c <- cbind(beta_hat2sls,se2)
+result_c <- round(result_c,2)
+rownames(result_c) <- c('risk','intercept')
+colnames(result_c) <- c('Coefficient','Robust standard errors')
+```
+
+```{r}
+#| echo: FALSE
+knitr::kable(result_c,caption = 'Coefficient estimates and Robust S.E.\\label{tab:10}',
+             booktabs = T)%>% 
+  kable_styling(latex_options = "HOLD_position")
+```
+
+Comparing table $\ref{tab:3}$ and table $\ref{tab:10}$, The coefficient of the risk in this problem is smaller than coefficient from past problem.
+
+##### (j) For the estimates in (i) are the instruments strong or weak using the Stock-Yogo test?
+
+-   Calculate F statistic for Stock-Yogo test.
+
+```{r}
+sigtildesq <-t(Yr-mean(Yr)) %*% (Yr-mean(Yr))
+sigbarsq <- t(e_hatr) %*% e_hatr
+F <- ((64-3)/2)* (sigtildesq- sigbarsq)/sigbarsq
+F
+```
+
+```{=tex}
+\begin{table}[hbt!]
+\centering
+\begin{tabular}{@{}llllll@{}}
+\toprule
+5\% Critical values                    &  & \multicolumn{4}{l}{\# of endogenous regressors : 1} \vspace{2.5mm} \\
+H0: Instruments are weak           &  & \multicolumn{4}{l}{\# of excluded instruments : 2}  \\  \midrule 
+                                   &  & 10\%        & 15\%        & 20\%       & 25\%     \vspace{1mm}  \\
+2SLS size of nominal 5\% Wald test &  & 19.93       & 11.59       & 8.75       & 7.25       \\ \midrule
+                                   &  &             &             &            &           
+\end{tabular}
+\caption{5\% Critical Value for Weak Instruments}
+\label{tab:10}
+\end{table}
+```
+We have $F = 18.42273$ which exceeds the 15% size threshold for 2SLS as shown in table $\ref{tab:10}$. Thus we can interpret the conventional 2SLS confidence interval as having coverage of 85%.
+
+##### (k) Calculate and interpret a test for exogeneity of the instruments.
+
+-   Sargan Test
+
+```{r}
+Z <- Xr
+S <- t(e_hat2sls)%*%Z%*%solve(t(Z)%*%Z)%*%t(Z)%*%e_hat2sls/
+  ((t(e_hat2sls)%*%e_hat2sls)/NROW(Y))
+S
+p = 1- pchisq(S,1,lower.tail = F)
+p
+```
+
+Above codes are for performing Sargan test. Let $H_0:E[Ze]=0$ and $\alpha = 0.05$. As we can observe from results, We can reject $H_0$ at $\alpha = 0.05$. Thus we can say that instrumental variables are endogenous at significance level of 0.05.

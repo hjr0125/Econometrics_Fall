@@ -1,0 +1,7 @@
+"0","u2sls <- Xr*(e_hat2sls%*%matrix(1,1,ncol(Xr)))"
+"0","qzx <- t(Xr)%*%X"
+"0","qxx <- t(X)%*%X"
+"0","qzz <- t(Xr)%*%Xr"
+"0","v2sls <- solve(t(qzx)%*%solve(qzz)%*%qzx)%*%t(qzx)%*%solve(qzz)%*%"
+"0","  (t(u2sls)%*%u2sls)%*%solve(qzz)%*%qzx%*%solve(t(qzx)%*%solve(qzz)%*%qzx)"
+"0","se2 <- sqrt(diag(v2sls))"

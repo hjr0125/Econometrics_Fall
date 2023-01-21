@@ -1,0 +1,193 @@
+---
+title: "&nbsp;"
+output:
+  html_document:
+    theme:
+      version: 4
+  word_document: default
+  pdf_document: default
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## problem 6 and 7
+
+### Import data
+First, Set the enviroment and import data.
+
+```{r message=FALSE, warning=FALSE, paged.print=FALSE}
+rm(list=ls())
+library(haven) #library for importing data set
+library(psych) #library for trace matrix
+library(lmtest) #library for HC3
+library(sandwich) #library for HC3
+library(Statamarkdown)
+cps09mar <- read_dta("cps09mar.dta")
+```
+
+```{r echo=FALSE}
+knitr::kable(cps09mar[1:10,1:12], format="markdown")
+```
+
+*Note for region and martial status*
+
+####   region:
+
+-   1: Northeast
+
+-   2: Midwest
+
+-   3: South
+
+-   4: West
+
+####   Marital status:
+
+-   1: Married - civilian spouse present
+
+-   2: Married - Armed Forces spouse present
+
+-   3: Married - spouse absent (except separated)
+
+-   4: Widowed
+
+-   5: Divorced
+
+-   6: Separated
+
+-   7: Never married
+
+
+### Data Manipulation
+
+Slice the data for White male Hispanics,
+```{r}
+cps <- cps09mar[cps09mar$hisp == 1 & cps09mar$female == 0 & cps09mar$race == 1,] 
+```
+
+And create matrix for variables.
+
+```{r}
+con <- matrix(1,nrow = nrow(cps),ncol = 1)
+edu <- matrix(0,nrow = nrow(cps),ncol = 1)
+edu[,] <- cps$education
+
+exp <- matrix(0,nrow = nrow(cps),ncol = 1)
+exp[,] <- cps$age - cps$education - 6
+
+expsq <- exp^2
+
+wage <- matrix(0,nrow = nrow(cps),ncol = 1)
+wage[,] <- cps$earnings / (cps$hours * cps$week)
+lwage <- log(wage)
+
+#region dummy variables
+
+dne <- matrix(0,nrow = nrow(cps),ncol = 1)
+ds <- matrix(0,nrow = nrow(cps),ncol = 1)
+dw <- matrix(0,nrow = nrow(cps),ncol = 1)
+dne[cps$region == 1,] <-  1
+ds[cps$region == 3,] <-  1
+dw[cps$region == 4,] <-  1
+
+#Martial dummy variables
+
+dmar <- matrix(0,nrow = nrow(cps),ncol = 1)
+dwid <- matrix(0,nrow = nrow(cps),ncol = 1)
+dsep <- matrix(0,nrow = nrow(cps),ncol = 1)
+
+dmar[cps$marital == 1 | cps$marital == 2 | cps$marital == 3,] <-  1
+dwid[cps$marital == 4 | cps$marital == 5,] <-  1
+dsep[cps$marital == 6,] <-  1
+
+
+X <- cbind(con,edu,exp,expsq,dne,ds,dw,dmar,dwid,dsep)
+Y <- lwage
+```
+
+*Note that cps is subsample of white male hispanics.*
+
+### Estimate a log wage regression(3.26)
+
+Now I can estimate Beta and Error.
+
+```{r}
+
+beta_hat <- solve((t(X) %*% X)) %*% (t(X) %*% Y)
+e_hat <- Y - X %*% beta_hat
+row.names(beta_hat) <- c('con','edu','exp','expsq',
+                         'dne','ds','dw','dmar','dwid','dsep')
+colnames(beta_hat) <- c('coefficient')
+colnames(e_hat) <- c('error')
+
+```
+
+```{r include=FALSE}
+library(kableExtra)
+```
+<div style='page-break-before:always'></div>
+
+```{r echo=FALSE, message=FALSE, warning=FALSE}
+
+knitr::kable(beta_hat,caption = 'Beta estimation',table.attr = "style='width:30%;'") %>% 
+  kable_styling(full_width = TRUE, position = 'float_left')
+
+knitr::kable(e_hat[1:10,],col.names = 'error',caption =
+               'Error, First 10 elements',table.attr = "style='width:20%;'") %>% 
+  kable_styling(full_width = TRUE, position = 'left')
+```
+
+Now, I'll estimate same thing with Stata.
+
+
+```{stata collectcode = TRUE}
+clear
+use "/Users/hjr/Desktop/econometrics_pset1/cps09mar.dta"
+keep if (hisp == 1 & female == 0 & race == 1)
+gen lwage = log(earnings/(hours*week))
+gen exp = age - education - 6
+gen expsq = exp^2
+gen dne = region == 1
+gen ds = region == 3
+gen dw = region == 4
+gen dmar = marital == 1 | marital ==2 | marital == 3
+gen dwid = marital == 4 | marital == 5
+gen dsep = marital == 6
+regress lwage education exp expsq dne ds dw dmar dwid dsep
+```
+
+### Calculate standard errors using the HC3 method(4.25)
+
+Set the variable for convenience.
+```{r}
+XX <- solve((t(X) %*% X)) #XX is variable name it means inverse matrix of (X'X)
+leverage <- rowSums(X*(X %*% XX))
+```
+
+Calculate S.E using the HC3 method.
+```{r}
+u3 <- X * ((e_hat/(1-leverage))%*% matrix(1,1,ncol(X)))
+v3 <- XX %*% (t(u3) %*% u3) %*% XX
+s3 <- sqrt(diag(v3))
+```
+
+```{r echo=FALSE}
+se <- data.frame(s3,row.names = c('con','edu','exp','expsq',
+                            'dne','ds','dw','dmar','dwid','dsep'))
+se <- t(se)
+row.names(se) <- 'S.E.'
+```
+
+```{r echo = F}
+knitr::kable(se,caption = 'S.E.(HC3)') %>% 
+  kable_styling(full_width = TRUE, position = 'center', font_size = 12)
+```
+
+Then calculate with Stata.
+```{stata}
+regress lwage education exp expsq dne ds dw dmar dwid dsep, vce(hc3)
+```
+
+Yield same results.

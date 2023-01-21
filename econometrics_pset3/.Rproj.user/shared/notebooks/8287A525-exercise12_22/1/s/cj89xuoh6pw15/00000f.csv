@@ -1,0 +1,3 @@
+"0","u3r <- Xr * ((e_hatr/(1-leverager))%*% matrix(1,1,ncol(Xr)))"
+"0","v3r <- XXr %*% (t(u3r) %*% u3r) %*% XXr"
+"0","s3r <- sqrt(diag(v3r))"

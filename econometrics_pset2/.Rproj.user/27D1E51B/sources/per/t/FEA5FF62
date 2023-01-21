@@ -1,0 +1,31 @@
+{
+    "id": "FEA5FF62",
+    "path": "~/Desktop/econometrics_pset2/exercise7_28_fin.Rmd",
+    "project_path": "exercise7_28_fin.Rmd",
+    "type": "r_markdown",
+    "hash": "395652688",
+    "contents": "",
+    "dirty": false,
+    "created": 1667394661913.0,
+    "source_on_save": false,
+    "relative_order": 5,
+    "properties": {
+        "source_window_id": "",
+        "Source": "Source",
+        "rmdVisualMode": "false",
+        "rmdVisualCollapsedChunks": "",
+        "rmdVisualModeLocation": "4098:2861",
+        "rmdVisualWrapConfigured": "true",
+        "docOutlineVisible": "1",
+        "cursorPosition": "166,12",
+        "scrollLine": "0"
+    },
+    "folds": "",
+    "lastKnownWriteTime": 1667382400,
+    "encoding": "UTF-8",
+    "collab_server": "",
+    "source_window": "",
+    "last_content_update": 1667382400,
+    "read_only": false,
+    "read_only_alternatives": []
+}

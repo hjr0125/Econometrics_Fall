@@ -1,0 +1,3 @@
+"0","invest %>% "
+"0","  group_by(year) %>% "
+"0","  summarise(mean(I),mean(Q),mean(C),mean(D))"

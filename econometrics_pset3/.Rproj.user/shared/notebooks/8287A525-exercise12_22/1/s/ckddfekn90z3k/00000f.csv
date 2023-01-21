@@ -1,0 +1,4 @@
+"0","beta_hat2sls <- solve(t(X)%*%Xr%*%solve(t(Xr)%*%Xr)%*%t(Xr)%*%X)%*%t(X)%*%Xr%*%"
+"0","  solve(t(Xr)%*%Xr)%*%t(Xr)%*%Y"
+"0","row.names(beta_hat2sls) <- c('risk','intercept')"
+"0","colnames(beta_hat2sls) <- c('coefficient')"

@@ -1,0 +1,120 @@
+rm(list=ls())
+library(haven) #library for importing data set
+library(psych) #library for trace matrix
+library(lmtest) #library for HC3
+library(sandwich) #library for HC3
+cps09mar <- read_dta("cps09mar.dta")
+
+# region
+# 1: Northeast
+# 2: Midwest
+# 3: South
+# 4: West
+
+# Marital status:
+# 1: Married - civilian spouse present
+# 2: Married - Armed Forces spouse present
+# 3: Married - spouse absent (except separated)
+# 4: Widowed
+# 5: Divorced
+# 6: Separated
+# 7: Never married
+
+# Data manipulation -------------------------------------------------------
+
+#Subsampling for white male hispanics
+cps <- cps09mar[cps09mar$hisp == 1 & cps09mar$female == 0 & cps09mar$race == 1 ,] 
+
+edu <- matrix(0,nrow = nrow(cps),ncol = 1)
+edu[,] <- cps$education
+
+exp <- matrix(0,nrow = nrow(cps),ncol = 1)
+# exp[,] <- cps$hours
+exp[,] <- cps$age - cps$education - 6
+
+expsq <- exp^2
+
+wage <- matrix(0,nrow = nrow(cps),ncol = 1)
+wage[,] <- cps$earnings
+lwage <- log(wage)
+
+#region dummy variables
+
+dne <- matrix(0,nrow = nrow(cps),ncol = 1)
+ds <- matrix(0,nrow = nrow(cps),ncol = 1)
+dw <- matrix(0,nrow = nrow(cps),ncol = 1)
+dne[cps$region == 1,] <-  1
+ds[cps$region == 3,] <-  1
+dw[cps$region == 4,] <-  1
+
+#Martial dummy variables
+
+dmar <- matrix(0,nrow = nrow(cps),ncol = 1)
+dwid <- matrix(0,nrow = nrow(cps),ncol = 1)
+dsep <- matrix(0,nrow = nrow(cps),ncol = 1)
+
+dmar[cps$marital == 1 | cps$marital == 2 | cps$marital == 3,] <-  1
+dwid[cps$marital == 4 | cps$marital == 5,] <-  1
+dsep[cps$marital == 6,] <-  1
+
+
+X <- cbind(edu,exp,expsq,dne,ds,dw,dmar,dwid,dsep)
+Y <- lwage
+
+
+
+# Estimation --------------------------------------------------------------
+
+
+beta_hat <- solve((t(X) %*% X)) %*% (t(X) %*% Y)
+e_hat <- Y - X %*% beta_hat
+row.names(beta_hat) <- c('edu','exp','expsq',
+                         'dne','ds','dw','dmar','dwid','dsep')
+colnames(beta_hat) <- c('coefficient')
+colnames(e_hat) <- c('error')
+
+
+# Estimate with package ---------------------------------------------------
+
+cps$lwage <- log(cps$earnings)
+cps$exp <- cps$age - cps$education - 6
+cps$expsq <- (cps$exp)^2
+cps$dne <-dne
+cps$ds <- ds
+cps$dw <- dw
+cps$dmar <- dmar
+cps$dwid <- dwid
+cps$dsep <- dsep
+model <- lm(lwage ~ education + exp + expsq + dne + ds +
+              dw + dmar + dwid + dsep + 0, data = cps)
+
+summary(model)
+
+diff_beta <- t(beta_hat) - model$coefficients
+diff_beta <- round(diff_beta,digits = 11)
+#The result was same between calculated by matrix and package.
+
+
+# Calculate S.E. using HC3 method -----------------------------------------
+
+
+XX <- solve((t(X) %*% X)) #XX is variable name it means inverse matrix of (X'X)
+leverage <- rowSums(X*(X %*% XX))
+P <- X %*% XX %*% t(X)
+hii <- diag(P)
+
+
+u3 <- X * ((e_hat/(1-leverage))%*% matrix(1,1,ncol(X)))
+v3 <- XX %*% (t(u3) %*% u3) %*% XX
+s3 <- sqrt(diag(v3))
+
+#Calculate using packages
+
+m_se <- coeftest(model,vcovHC(model,type ='HC3'))
+m_se <- m_se[,2]
+diff_se <- s3 - m_se
+diff_se <- round(diff_se,13)
+result <- rbind(diff_beta,diff_se)
+row.names(result) <- c('diff_beta','diff_se')
+result
+#yield same result

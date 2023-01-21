@@ -1,0 +1,4 @@
+"0","sub_inv <- invest %>% "
+"0","  filter(year == 1987)"
+"0","sub_inv %>% "
+"0","  count()"

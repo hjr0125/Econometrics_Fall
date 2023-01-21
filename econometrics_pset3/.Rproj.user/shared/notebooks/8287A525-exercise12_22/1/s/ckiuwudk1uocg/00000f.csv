@@ -1,0 +1,5 @@
+"0","#| echo: FALSE"
+"0","ser <- data.frame(s3r,row.names = c('mortality','intercept'))"
+"0","result_b <- cbind(beta_hatr,s3r)"
+"0","result_b <- round(result_b,2)"
+"0","colnames(result_b) <- c('Coefficient','Robust standard errors')"

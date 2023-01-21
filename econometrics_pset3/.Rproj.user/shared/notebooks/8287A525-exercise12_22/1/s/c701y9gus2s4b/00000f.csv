@@ -1,0 +1,8 @@
+"0","Xr <- as.matrix(ajr %>% "
+"0","                 select(logmort0, latitude , africa) %>% "
+"0","                 bind_cols(data.frame(con=rep(1,nrow(ajr)))))"
+"0",""
+"0",""
+"0","beta_hat2sls <- solve(t(X)%*%Xr%*%solve(t(Xr)%*%Xr)%*%t(Xr)%*%X)%*%t(X)%*%Xr%*%"
+"0","  solve(t(Xr)%*%Xr)%*%t(Xr)%*%Y"
+"0","e_hat2sls <- Y - X %*% beta_hat2sls"

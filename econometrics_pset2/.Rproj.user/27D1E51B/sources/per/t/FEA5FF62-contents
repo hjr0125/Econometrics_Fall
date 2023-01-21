@@ -1,0 +1,288 @@
+---
+title: 
+header-includes:
+   - \usepackage{amsmath}
+   - \usepackage{amssymb}
+   - \usepackage{booktabs}
+   - \usepackage{longtable}
+   - \usepackage{array}
+   - \usepackage{multirow}
+   - \usepackage{wrapfig}
+   - \usepackage{float}
+   - \usepackage{colortbl}
+   - \usepackage{pdflscape}
+   - \usepackage{tabu}
+   - \usepackage{threeparttable}
+   - \usepackage{threeparttablex}
+   - \usepackage[normalem]{ulem}
+   - \usepackage{makecell}
+   - \usepackage{xcolor}
+output:
+  pdf_document: 
+    latex_engine: xelatex
+  word_document: default
+  html_document:
+    theme:
+      version: 4
+---
+\pagenumbering{gobble}
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## Exercises 7.28
+
+###### Import data
+
+First, Set the environment and import data. *Note that i wrote the code using R*
+
+```{r message=FALSE, warning=FALSE, paged.print=FALSE}
+rm(list=ls())
+library(dplyr) #dataframe management
+library(haven) #library for importing data set
+library(psych) #library for trace matrix
+cps09mar <- read_dta("cps09mar.dta")
+```
+```{r include=FALSE}
+library(kableExtra)
+```
+
+```{r echo=FALSE}
+knitr::kable(cps09mar[1:10,1:12], format="latex",caption = 'First 10 elements of cps09mar',booktabs = T) %>% 
+  kable_styling(font_size = 10,latex_options = "HOLD_position")
+```
+
+Slice the data for White male Hispanics,
+
+```{r}
+cps <- cps09mar[cps09mar$hisp == 1 & cps09mar$female == 0 & cps09mar$race == 1,] 
+```
+
+And create matrix for variables.
+
+```{r}
+con <- matrix(1,nrow = nrow(cps),ncol = 1)
+edu <- matrix(0,nrow = nrow(cps),ncol = 1)
+edu[,] <- cps$education
+
+exp <- matrix(0,nrow = nrow(cps),ncol = 1)
+exp[,] <- cps$age - cps$education - 6
+
+expsq <- exp^2/100
+
+wage <- matrix(0,nrow = nrow(cps),ncol = 1)
+wage[,] <- cps$earnings /(cps$hours*cps$week)
+lwage <- log(wage)
+
+X <- cbind(con,edu,exp,expsq)
+Y <- lwage
+```
+
+*Note that cps is sub-sample of white male hispanics.*
+
+##### (a) Report the coefficient estimates and robust standard error.\newline
+\hfill
+Now I can estimate Beta and Error.
+```{r}
+
+beta_hat <- solve((t(X) %*% X)) %*% (t(X) %*% Y)
+e_hat <- Y - X %*% beta_hat
+row.names(beta_hat) <- c('con','edu','exp','expsq/100')
+colnames(beta_hat) <- c('coefficient')
+colnames(e_hat) <- c('error')
+
+```
+
+
+Set the variable for convenience.
+
+```{r}
+XX <- solve((t(X) %*% X)) #XX is variable name it means inverse matrix of (X'X)
+leverage <- diag(X%*%XX%*%t(X))
+```
+
+Calculate S.E using the HC3 method.
+
+```{r}
+u3 <- X * ((e_hat/(1-leverage))%*% matrix(1,1,ncol(X)))
+v3 <- XX %*% (t(u3) %*% u3) %*% XX
+s3 <- sqrt(diag(v3))
+```
+
+```{r echo=FALSE}
+se <- data.frame(s3,row.names = c('con','edu','exp','expsq/100'))
+result_a <- cbind(beta_hat,s3)
+colnames(result_a) <- c('Coefficient','Robust standard errors')
+```
+
+```{r echo=FALSE}
+knitr::kable(result_a,caption = 'Coefficient estimates and Robust S.E.',booktabs = T)%>% 
+  kable_styling(latex_options = "HOLD_position")
+```
+##### (b) Let $\theta$ be the ratio of the return to one year of education to the return to one year of experience for experience = 10. Write $\theta$ as a function of the regression coefficients and variables. Compute $\hat{\theta}$ from the estimated model.\newline
+
+\begin{align*}
+\text{we got}\ {log(wage)} &= \beta_1 education +\beta_2 experience +\beta_3 experience^2/100 +\beta_4 \\
+\frac{\partial log(wage)}{\partial education} &= \beta_1 \\
+\frac{\partial log(wage)}{\partial experience} &= \beta_2 + \beta_3 experience/50 \\
+\theta &= \frac{\beta_1}{\beta_2 + \beta_3/5} \\
+\end{align*}
+Thus following result is $\hat{\theta}$. 
+```{r}
+theta_hat <- beta_hat[2]/(beta_hat[3]+(beta_hat[4]/5))
+print(theta_hat)
+```
+\begingroup
+\fontsize{8}{8}
+*note that, in my code  beta_hat[2] = $\hat{\beta_1}$, beta_hat[3] = $\hat{\beta_2}$, beta_hat[4] = $\hat{\beta_3}$ and  beta_hat[4] = $\hat{\beta_1}$*
+\endgroup
+
+
+##### (c) Write out the formula for the asymptotic standard error for $\hat{\theta}$ as a function of the covariance matrix for $\hat{\beta}$. Compute $s(\hat{\theta})$ from the estimated model. \newline
+\hfill
+First, Calculate $\textbf{R} = \frac{\partial r(\beta)'}{\partial\beta}$.
+\begin{flalign*}
+\textbf{R} &= \begin{bmatrix}
+\frac{1}{\beta_2+\beta_3 / 5}\\
+-\frac{25\beta_1}{(5\beta_2+\beta_3)^2}\\
+-\frac{5\beta_1}{(5\beta_2+\beta_3)^2}\\
+0
+\end{bmatrix}&&\\
+\text{Thus}\ \hat{\textbf{R}} &= \begin{bmatrix}
+\frac{1}{\hat{\beta_2}+\hat{\beta_3} / 5}\\
+-\frac{25\hat{\beta_1}}{(5\hat{\beta_2}+\hat{\beta_3})^2}\\
+-\frac{5\hat{\beta_1}}{(5\hat{\beta_2}+\hat{\beta_3})^2}\\
+0
+\end{bmatrix} = \begin{bmatrix}
+38.34577\\
+-132.996\\
+-26.5992\\
+0
+\end{bmatrix}&&\\
+\text{since}\ s(\hat{\theta}) &= \sqrt{\hat{R}'{\hat{\textbf{V}}}_{\hat{\beta}} \hat{R}} = \sqrt{\begin{bmatrix}
+\frac{1}{\hat{\beta_2}+\hat{\beta_3} / 5}&
+-\frac{25\hat{\beta_1}}{(5\hat{\beta_2}+\hat{\beta_3})^2}&
+-\frac{5\hat{\beta_1}}{(5\hat{\beta_2}+\hat{\beta_3})^2}&
+0
+\end{bmatrix}{\hat{\textbf{V}}_{\hat{\beta}}}\begin{bmatrix}
+\frac{1}{\hat{\beta_2}+\hat{\beta_3} / 5}\\
+-\frac{25\hat{\beta_1}}{(5\hat{\beta_2}+\hat{\beta_3})^2}\\
+-\frac{5\hat{\beta_1}}{(5\hat{\beta_2}+\hat{\beta_3})^2}\\
+0
+\end{bmatrix}}&&\\
+\end{flalign*}
+Calculation is following codes.
+
+```{r}
+R_hat <- matrix(c(0,1/(beta_hat[3]+(beta_hat[4]/5)),
+-25*beta_hat[2]/((5*beta_hat[3]+beta_hat[4])^2),
+-5*beta_hat[2]/((5*beta_hat[3]+beta_hat[4])^2)),4,1)
+v_theta <- t(R_hat)%*%v3%*%R_hat
+s_theta <- sqrt(v_theta)
+print(s_theta)
+```
+Thus $s(\hat{\theta}) = 0.2273514$. 
+
+##### (d) Construct a 90% asymptotic confidence interval for $\theta$ from the estimated model.\newline
+\begin{flalign*}
+&\text{Assume }\theta\in\mathbb{R}&&\\
+&t_n (\theta)=\frac{\hat{\theta}-\theta}{s(\hat{\theta})}&&\\
+&t_n (\theta) \xrightarrow{d} N(0,1)&&\\
+&\hat{C}=[\hat{L},\hat{U}]&&\\
+&P(\theta\in\hat{C}) = 1-\alpha \ where\  \alpha = 0.10&&\\
+&\hat{C}=\{\theta : -c \le \frac{\hat{\theta}-\theta}{s(\hat{\theta})} \le c\}&&\\
+&\text{Use CLT: }P(\theta\in\hat{C}) \rightarrow P(|Z|\le c) = 1-\alpha&&\\
+&\text{Thus the asymptotic CI: }\hat{C}_n = [\hat{\theta}-c_{\alpha/2}s(\hat{\theta}),\hat{\theta}+c_{\alpha/2}s(\hat{\theta})].&&
+\end{flalign*}
+Since $\alpha = 0.10$ we are using $c_{0.05} = 1.645$. Calculation is following codes.
+```{r}
+CI_theta <- c(theta_hat- 1.645*s_theta,theta_hat+ 1.645*s_theta)
+print(CI_theta)
+```
+Thus $\hat{C}_n = [3.094342,3.842328]$. \newline
+
+##### (e) Compute the regression funciton at *education*=12 and *experience*=20. Compute a 95% confidence interval for the regression function at this point. \newline
+\hfill
+
+In the linear regression model the conditional expectation of Y given X = x is
+\begin{equation*}m(x) = E[Y | X = x] = x' \beta . \end{equation*}
+In some cases we want to estimate m(x) at a particular point x. Notice that this is a linear function of $\beta$. Letting $r (\beta) = x'\beta$ and $\theta = r (\beta)$ we see that $\hat{m} (x) = \hat{θ} = x'\hat{\beta}$ and $R = x$ so $s(\hat{\theta}) = \sqrt{x'{\hat{\textbf{V}}}_{\hat{\beta}} x}$
+Thus an asymptotic 95% confidence interval for m(x) is
+\begin{equation*}[x'\hat{\beta}\pm 1.96\sqrt{x'{\hat{\textbf{V}}}_{\hat{\beta}} x}]. \end{equation*}
+We have estimated regression equation.
+\begin{align*}\hat{log(wage)} &= \hat{\beta} _1 education +\hat{\beta} _2 experience +\hat{\beta} _3 experience^2/100 +\hat{\beta} _4 \\
+&=0.09044896 education + 0.03537968 experience -0.04650594 experience^2/100 + 1.18520948
+\end{align*}
+And since we compute the CI of regression function at $education = 12$ and $experience = 20$.
+\begin{equation*}
+z(x) = \begin{bmatrix}
+12\\
+20\\
+4\\
+1
+\end{bmatrix}.
+\end{equation*}
+
+The calculation is following codes.
+```{r}
+zx <- matrix(c(1,12,20,4),4,1)
+#calculate regression function at given points.
+0.09044896 * 12 + 0.03537968 * 20 -0.04650594 * 4 + 1.1852094 
+1.96*sqrt(t(zx)%*%v3%*%zx) #calculate 1.96*s(theta^hat)
+```
+
+Thus 95% CI for the regression function is
+\begin{align*} &=0.09044896 \times 12 + 0.03537968 \times 20 -0.04650594 \times 4 + 1.18520948\\
+&\pm \sqrt{z(x)' \begin{bmatrix}
+8.527548e-06 & 5.859398e-07 &  2.993847e-07 & -1.100132e-04\\
+5.859398e-07 & 6.727849e-06 & -1.319682e-05 & -6.944845e-05\\
+2.993847e-07 & -1.319682e-05 &  2.841608e-05 &  1.063531e-04\\
+-1.100132e-04 & -6.944845e-05 &  1.063531e-04 &  2.131778e-03  \end{bmatrix}   z(x)}\\
+&=2.792167 \pm 0.4365705 = [2.355596,3.228737].
+\end{align*}
+
+
+##### (f) Consider an out-of-sample individual with 16 years of education and 5 years experience. Construct an 80% forecast interval for their log wage and wage. [To obtain the forecast interval for the wage, apply the exponential function to both endpoints.]. \newline
+\hfill
+
+
+Given regressor vector $X_{n+1}$ is
+\begin{equation*}
+X_{n+1} = \begin{bmatrix}
+16\\
+5\\
+\frac{1}{4}\\
+1
+\end{bmatrix}.
+\end{equation*}
+
+Since out of sample error $e_{n+1}$ is generally non-normal and asymptotic theory cannot be applied to a single observation, I use conventional 80% forecast interval for $Y_{n+1}$ uses a normal approximation and equals $x'\hat{\beta}\pm 1.28\hat{s}(x)$.
+
+The calculation is following codes.
+```{r}
+zxn1 <- matrix(c(1,16,5,1/4),4,1)
+#calculate regression function at given points.
+0.09044896 * 16 + 0.03537968 * 5 -0.04650594 * 0.25 + 1.1852094 
+1.28*sqrt(t(zxn1)%*%v3%*%zxn1) #calculate 1.96*s(theta^hat)
+```
+
+Thus 80% CI for the log wage is
+\begin{align*} &=0.09044896 \times 16 + 0.03537968 \times 5 -0.04650594 \times \frac{1}{4} + 1.18520948\\
+&\pm \sqrt{\begin{bmatrix}
+16 &
+5&
+\frac{1}{4}&
+1
+\end{bmatrix} \begin{bmatrix}
+8.527548e-06 & 5.859398e-07 &  2.993847e-07 & -1.100132e-04\\
+5.859398e-07 & 6.727849e-06 & -1.319682e-05 & -6.944845e-05\\
+2.993847e-07 & -1.319682e-05 &  2.841608e-05 &  1.063531e-04\\
+-1.100132e-04 & -6.944845e-05 &  1.063531e-04 &  2.131778e-03  \end{bmatrix}   \begin{bmatrix}
+16\\
+5\\
+\frac{1}{4}\\
+1
+\end{bmatrix}}\\
+&=2.797665 \pm 0.02515536 = [2.77251,2.82282].
+\end{align*}
+And 80% CI for the wage is $[15.99874,16.82423]$.

@@ -1,0 +1,2 @@
+"0","XX <- solve((t(X) %*% X)) #XX is variable name it means inverse matrix of (X'X)"
+"0","leverage <- diag(X%*%XX%*%t(X))"

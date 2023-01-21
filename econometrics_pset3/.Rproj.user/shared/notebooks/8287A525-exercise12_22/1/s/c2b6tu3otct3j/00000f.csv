@@ -1,0 +1,4 @@
+"0","#| echo: FALSE"
+"0","knitr::kable(result_c,caption = 'Coefficient estimates and Robust S.E.\\label{tab:10}',"
+"0","             booktabs = T)%>% "
+"0","  kable_styling(latex_options = ""HOLD_position"")"

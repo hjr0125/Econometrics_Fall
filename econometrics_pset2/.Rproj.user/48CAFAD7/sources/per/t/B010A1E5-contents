@@ -1,0 +1,185 @@
+---
+title: "&nbsp;"
+header-includes:
+   - \usepackage{amsmath}
+   - \usepackage{mathbb}
+output:
+  html_document:
+    theme:
+      version: 4
+  word_document: default
+  pdf_document: 
+    latex_engine: xelatex
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## Exercises 7.17
+
+###### Import data
+
+First, Set the environment and import data. *Note that i wrote the code using R*
+
+```{r message=FALSE, warning=FALSE, paged.print=FALSE}
+rm(list=ls())
+library(dplyr) #dataframe management
+library(haven) #library for importing data set
+library(psych) #library for trace matrix
+cps09mar <- read_dta("cps09mar.dta")
+```
+
+```{r echo=FALSE}
+knitr::kable(cps09mar[1:10,1:12], format="markdown")
+```
+
+Slice the data for White male Hispanics,
+
+```{r}
+cps <- cps09mar[cps09mar$hisp == 1 & cps09mar$female == 0 & cps09mar$race == 1,] 
+```
+
+And create matrix for variables.
+
+```{r}
+con <- matrix(1,nrow = nrow(cps),ncol = 1)
+edu <- matrix(0,nrow = nrow(cps),ncol = 1)
+edu[,] <- cps$education
+
+exp <- matrix(0,nrow = nrow(cps),ncol = 1)
+exp[,] <- cps$age - cps$education - 6
+
+expsq <- exp^2/100
+
+wage <- matrix(0,nrow = nrow(cps),ncol = 1)
+wage[,] <- cps$earnings /(cps$hours*cps$week)
+lwage <- log(wage)
+
+X <- cbind(con,edu,exp,expsq)
+Y <- lwage
+```
+
+*Note that cps is sub-sample of white male hispanics.*
+
+###### (a) Report the coefficient estimates and robust standard error.
+
+Now I can estimate Beta and Error.
+
+```{r}
+
+beta_hat <- solve((t(X) %*% X)) %*% (t(X) %*% Y)
+e_hat <- Y - X %*% beta_hat
+row.names(beta_hat) <- c('con','edu','exp','expsq/100')
+colnames(beta_hat) <- c('coefficient')
+colnames(e_hat) <- c('error')
+
+```
+
+```{r include=FALSE}
+library(kableExtra)
+```
+
+Set the variable for convenience.
+
+```{r}
+XX <- solve((t(X) %*% X)) #XX is variable name it means inverse matrix of (X'X)
+leverage <- diag(X%*%XX%*%t(X))
+```
+
+Calculate S.E using the HC3 method.
+
+```{r}
+u3 <- X * ((e_hat/(1-leverage))%*% matrix(1,1,ncol(X)))
+v3 <- XX %*% (t(u3) %*% u3) %*% XX
+s3 <- sqrt(diag(v3))
+```
+
+```{r echo=FALSE}
+se <- data.frame(s3,row.names = c('con','edu','exp','expsq/100'))
+result_a <- cbind(beta_hat,s3)
+colnames(result_a) <- c('Coefficient','Robust standard errors')
+```
+
+```{r echo=FALSE}
+knitr::kable(result_a,caption = 'Coefficient estimates and Robust S.E.') %>% 
+  kable_styling(full_width = T,position='center',font_size = 14)
+```
+###### (b) Let $\theta$ be the ratio of the return to one year of education to the return to one year of experience for experience = 10. Write $\theta$ as a function of the regression coefficients and variables. Compute $\hat{\theta}$ from the estimated model.
+
+\begin{align*}
+\text{we got}\ \hat{log(wage)} &= \beta_1 education +\beta_2 experience +\beta_3 experience^2/100 +\beta_4 \\
+\frac{\partial log(wage)}{\partial education} &= \beta_1 \\
+\frac{\partial log(wage)}{\partial experience} &= \beta_2 + \beta_3 experience/50 \\
+\theta &= \frac{\beta_1}{\beta_2 + \beta_3/5} \\
+\end{align*}
+Thus following result is $\hat{\theta}$. 
+```{r}
+theta_hat <- beta_hat[2]/(beta_hat[3]+(beta_hat[4]/5))
+print(theta_hat)
+```
+
+###### (c) Write out the formula for the asymptotic standard error for $\hat{\theta}$ as a function of the covariance matrix for $\hat{\beta}$. Compute $s(\hat{\theta})$ from the estimated model.
+
+First, Calculate $\textbf{R} = \frac{\partial r(\beta)'}{\partial\beta}$.
+\begin{align*}
+\textbf{R} = \begin{bmatrix}
+\frac{1}{\beta_2+\beta_3 / 5}\\
+-\frac{25\beta_1}{(5\beta_2+\beta_3)^2}\\
+-\frac{5\beta_1}{(5\beta_2+\beta_3)^2}\\
+0
+\end{bmatrix}&&\\
+\text{Thus}\ \hat{\textbf{R}} = \begin{bmatrix}
+\frac{1}{\hat{\beta_2}+\hat{\beta_3} / 5}\\
+-\frac{25\hat{\beta_1}}{(5\hat{\beta_2}+\hat{\beta_3})^2}\\
+-\frac{5\hat{\beta_1}}{(5\hat{\beta_2}+\hat{\beta_3})^2}\\
+0
+\end{bmatrix} = \begin{bmatrix}
+38.34577\\
+-132.996\\
+-26.5992\\
+0
+\end{bmatrix}&&\\
+\text{since}\ s(\hat{\theta}) = \sqrt{\hat{R}'\hat{\textbf{V}}_\hat{\beta} \hat{R}} = \sqrt{\begin{bmatrix}
+\frac{1}{\hat{\beta_2}+\hat{\beta_3} / 5}&
+-\frac{25\hat{\beta_1}}{(5\hat{\beta_2}+\hat{\beta_3})^2}&
+-\frac{5\hat{\beta_1}}{(5\hat{\beta_2}+\hat{\beta_3})^2}&
+0
+\end{bmatrix}\hat{\textbf{V}}_\hat{\beta}\begin{bmatrix}
+\frac{1}{\hat{\beta_2}+\hat{\beta_3} / 5}\\
+-\frac{25\hat{\beta_1}}{(5\hat{\beta_2}+\hat{\beta_3})^2}\\
+-\frac{5\hat{\beta_1}}{(5\hat{\beta_2}+\hat{\beta_3})^2}\\
+0
+\end{bmatrix}}&&\\
+\end{align*}
+Calculation is following codes.
+
+```{r}
+R_hat <- matrix(c(0,1/(beta_hat[3]+(beta_hat[4]/5)),
+-25*beta_hat[2]/((5*beta_hat[3]+beta_hat[4])^2),
+-5*beta_hat[2]/((5*beta_hat[3]+beta_hat[4])^2)),4,1)
+v_theta <- t(R_hat)%*%v3%*%R_hat
+s_theta <- sqrt(v_theta)
+print(s_theta)
+```
+*note that, in my code  beta_hat[2] = $\hat{\beta_1}$, beta_hat[3] = $\hat{\beta_2}$, beta_hat[4] = $\hat{\beta_3}$ and  beta_hat[4] = $\hat{\beta_1}$*
+
+Thus $s(\hat{\theta}) = 0.2273514$. 
+
+###### (d) Construct a 90% asymptotic confidence interval for $\theta$ from the estimated model.
+\begin{align*}
+\text{Assume }\theta&\in\mathbb{R}\\
+t_n (\theta)&=\frac{\hat{\theta}-\theta}{s(\hat{\theta})}\\
+t_n (\theta) &\xrightarrow{d} N(0,1)\\
+\hat{C}&=[\hat{L},\hat{U}]\\
+P(\theta\in\hat{C}) &= 1-\alpha \ where\  \alpha = 0.10\\
+\hat{C}&=\{\theta : -c \le \frac{\hat{\theta}-\theta}{s(\hat{\theta})} \le c\}\\
+\text{Use CLT: }P(\theta\in\hat{C}) &\rightarrow P(|Z|\le c) = 1-\alpha\\
+\text{Thus the asymptotic CI: }\hat{C}_n &= [\hat{\theta}-c_{\alpha/2}s(\hat{\theta}),\hat{\theta}+c_{\alpha/2}s(\hat{\theta})]
+\end{align*}
+Since $\alpha = 0.10$ we are using $c_{0.05} = 1.645$. Calculation is following codes.
+```{r}
+CI_theta <- c(theta_hat- 1.645*s_theta,theta_hat+ 1.645*s_theta)
+print(CI_theta)
+```
+Thus $\hat{C}_n = [3.094342,3.842328]$

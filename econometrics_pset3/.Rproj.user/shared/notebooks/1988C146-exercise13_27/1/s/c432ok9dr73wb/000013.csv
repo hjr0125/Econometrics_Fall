@@ -1,0 +1,8 @@
+"0","#| echo: FALSE"
+"0",""
+"0","result_a <- cbind(bgmm,segmm)"
+"0","result_a <- round(result_a,2)"
+"0","colnames(result_a) <- c('Coefficient','Standard errors')"
+"0","knitr::kable(result_a,caption = 'Coefficient estimates and S.E.',"
+"0","             booktabs = T)%>% "
+"0","  kable_styling(latex_options = ""HOLD_position"")"
